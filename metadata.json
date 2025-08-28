@@ -1,0 +1,7 @@
+{
+  "name": "Půjčírna Dodávek OS",
+  "description": "A comprehensive management system for a van rental business, designed for iPad. It includes customer management, fleet tracking, rental agreements, scheduling, and invoicing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
