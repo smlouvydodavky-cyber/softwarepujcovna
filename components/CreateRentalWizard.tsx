@@ -10,6 +10,7 @@ interface CreateRentalWizardProps {
   onClose: () => void;
   initialStartDate?: Date | null;
   initialEndDate?: Date | null;
+  prefilledData?: { customer: Omit<Customer, 'id'>; preRegistrationId: string } | null;
 }
 
 const toDatetimeLocal = (date: Date | null) => {
@@ -20,7 +21,7 @@ const toDatetimeLocal = (date: Date | null) => {
   return localISOTime;
 };
 
-const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose, initialStartDate, initialEndDate }) => {
+const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose, initialStartDate, initialEndDate, prefilledData }) => {
   const { customers, vehicles, rentals, addCustomer, addRental, addNotification } = useData();
   const signaturePadRef = useRef<{ getSignatureData: () => string | null }>(null);
 
@@ -43,6 +44,24 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
 
   // Reset state when modal is opened to ensure it's fresh
   useEffect(() => {
+    const handlePrefilledData = async () => {
+        if (prefilledData) {
+            // Check if customer already exists
+            const existingCustomer = customers.find(c => c.email.toLowerCase() === prefilledData.customer.email.toLowerCase());
+            if (existingCustomer) {
+                setSelectedCustomer(existingCustomer);
+                setStep(2);
+                return;
+            }
+
+            const newCustomer = await addCustomer(prefilledData.customer);
+            if (newCustomer) {
+                setSelectedCustomer(newCustomer);
+                setStep(2); // Automatically move to vehicle selection
+            }
+        }
+    };
+    
     if (isOpen) {
       const now = new Date();
       now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -67,8 +86,10 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
       setIsSigned(false);
       setMailtoLink('');
       setIsConfirmed(false);
+
+      handlePrefilledData();
     }
-  }, [isOpen, initialStartDate, initialEndDate]);
+  }, [isOpen, initialStartDate, initialEndDate, prefilledData, addCustomer, customers]);
 
   const filteredCustomers = useMemo(() => {
     if (!customerSearch) return customers;
@@ -85,7 +106,6 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
     return vehicles.filter(vehicle => {
       const isOverlapping = rentals.some(rental => {
         if (rental.vehicleId !== vehicle.id) return false;
-        // Skip completed rentals
         if (rental.status === 'completed') return false;
         const rentalStart = new Date(rental.startDate);
         const rentalEnd = new Date(rental.endDate);
@@ -130,8 +150,6 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
 
   }, [startDate, endDate, selectedVehicle]);
 
-  // Fix: The addCustomer function is async and was not being awaited, causing a promise to be set in state instead of a customer object.
-  // The function is now async, awaits the customer creation, and proceeds to the next step on success.
   const handleNewCustomerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const createdCustomer = await addCustomer(newCustomer);
@@ -161,26 +179,20 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
     const contractHtml = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: auto; padding: 20px; border: 1px solid #eee;">
           <h1 style="text-align: center; color: #1a1a1a;">Smlouva o nájmu dopravního prostředku</h1>
-          
           <h2 style="color: #0056b3;">1. Smluvní strany</h2>
           <p><strong>Pronajímatel:</strong><br>${BUSINESS_INFO.name}<br>${BUSINESS_INFO.address}<br>IČO: ${BUSINESS_INFO.ico}</p>
           <p><strong>Nájemce:</strong><br>${selectedCustomer.fullName}<br>${selectedCustomer.address}<br>Č. OP: ${selectedCustomer.idNumber}</p>
-          
           <h2 style="color: #0056b3;">2. Předmět nájmu</h2>
           <p><strong>Vozidlo:</strong> ${selectedVehicle.make} ${selectedVehicle.model} (SPZ: ${selectedVehicle.licensePlate})</p>
           <p><strong>VIN:</strong> ${selectedVehicle.vin}</p>
-
           <h2 style="color: #0056b3;">3. Doba a cena nájmu</h2>
           <p><strong>Období:</strong> ${new Date(startDate).toLocaleString('cs-CZ')} - ${new Date(endDate).toLocaleString('cs-CZ')}</p>
           <p><strong>Celkové nájemné:</strong> ${totalPrice.toLocaleString('cs-CZ')} Kč</p>
-          
           <h2 style="color: #0056b3;">4. Práva a povinnosti</h2>
           <p>Nájemce se zavazuje užívat vozidlo řádně a v souladu s technickými podmínkami a pokyny pronajímatele. Pronajímatel prohlašuje, že vozidlo je v technicky způsobilém stavu.</p>
-          
           <h2 style="color: #0056b3;">5. Platební a další podmínky</h2>
           <p><strong>Vratná kauce:</strong> 5.000 Kč, skládá se při podpisu smlouvy. Kauce je vratná v plné výši při řádném vrácení nepoškozeného vozidla.</p>
           <p><strong>Spoluúčast:</strong> V případě pojistné události způsobené nájemcem je spoluúčast nájemce stanovena na 5.000 Kč až 10.000 Kč dle rozsahu poškození.</p>
-
           <h2 style="color: #0056b3;">6. Podpis a souhlas</h2>
           <p>Nájemce svým podpisem potvrzuje, že se seznámil s podmínkami smlouvy, souhlasí s nimi a vozidlo v řádném stavu převzal.</p>
           <img src="${signatureData}" alt="Podpis" style="height: 60px; margin-top: 10px; border-bottom: 1px solid #ccc;"/>
@@ -194,7 +206,7 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
       endDate: new Date(endDate).toISOString(),
       totalPrice,
       contractDetails: contractHtml,
-    });
+    }, prefilledData?.preRegistrationId);
     
     const emailSubject = `Smlouva o pronájmu vozidla - ${selectedVehicle.make} ${selectedVehicle.model}`;
     const mailto = `mailto:${selectedCustomer.email},${BUSINESS_INFO.contactEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(contractHtml)}`;
@@ -205,6 +217,7 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
   const renderStep = () => {
     switch (step) {
       case 1: // Customer selection
+        if(prefilledData) return null; // Skip this step if data is prefilled
         return (
           <div>
             {!isCreatingCustomer ? (
@@ -260,7 +273,9 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
               )) : <p className="text-gray-500">Pro vybrané období nejsou dostupná žádná vozidla.</p>}
             </div>
              <div className="flex justify-between items-center mt-4 pt-4 border-t">
-               <button onClick={() => setStep(1)} className="px-4 py-2 bg-gray-200 rounded-md">Zpět</button>
+               <button onClick={() => prefilledData ? onClose() : setStep(1)} className="px-4 py-2 bg-gray-200 rounded-md">
+                {prefilledData ? 'Zrušit' : 'Zpět'}
+               </button>
                <div>
                   <span className="font-semibold mr-4">{durationText} Cena: {totalPrice.toLocaleString('cs-CZ')} Kč</span>
                   <button onClick={() => setStep(3)} disabled={!selectedVehicle || totalPrice <= 0} className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:bg-gray-400">Pokračovat</button>

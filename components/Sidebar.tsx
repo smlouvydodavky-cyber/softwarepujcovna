@@ -1,9 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { DashboardIcon, FleetIcon, CustomersIcon, RentalsIcon, CalendarIcon, FinancesIcon, LogoIcon, DocumentIcon } from './Icons';
+import { DashboardIcon, FleetIcon, CustomersIcon, RentalsIcon, CalendarIcon, FinancesIcon, LogoIcon, DocumentIcon, LogoutIcon } from './Icons';
 import { BUSINESS_INFO } from '../constants';
+import { useAuth } from '../hooks/useAuth';
 
 const Sidebar: React.FC = () => {
+  const { logout } = useAuth();
+
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `flex items-center px-4 py-3 text-lg font-medium transition-colors duration-200 transform rounded-lg ${
       isActive
@@ -46,6 +49,13 @@ const Sidebar: React.FC = () => {
           <FinancesIcon className="h-6 w-6 mr-4" />
           Finance
         </NavLink>
+
+        <div className="pt-4 mt-4 border-t border-gray-700">
+           <button onClick={logout} className="w-full flex items-center px-4 py-3 text-lg font-medium transition-colors duration-200 transform rounded-lg text-gray-200 hover:bg-red-700 hover:text-white">
+             <LogoutIcon className="h-6 w-6 mr-4" />
+             Odhlásit se
+           </button>
+        </div>
       </nav>
       <div className="p-4 border-t border-gray-700 text-center text-xs text-gray-400">
         <p>{BUSINESS_INFO.website}</p>

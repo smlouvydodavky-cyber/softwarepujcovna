@@ -89,3 +89,14 @@ export interface Notification {
   message: string;
   type: 'success' | 'error';
 }
+
+export interface PreRegistration {
+  id: string;
+  email: string;
+  status: 'pending' | 'submitted' | 'completed';
+  customerData?: Omit<Customer, 'id'>;
+  idCardUrl?: string;
+  licenseUrl?: string;
+  signature?: string;
+  created_at: string;
+}

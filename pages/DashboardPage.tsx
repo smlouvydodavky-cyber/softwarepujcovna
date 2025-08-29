@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../hooks/useDataContext';
 import { Link } from 'react-router-dom';
-import type { Rental } from '../types';
+import type { Rental, PreRegistration, Customer } from '../types';
 import CreateRentalWizard from '../components/CreateRentalWizard';
 import QuickHandoverModal from '../components/QuickHandoverModal';
 import { WarningIcon } from '../components/Icons';
@@ -99,9 +99,10 @@ const ActiveRentalCard: React.FC<{ rental: Rental }> = ({ rental }) => {
 
 
 const DashboardPage: React.FC = () => {
-  const { rentals, vehicles, customers, invoices } = useData();
+  const { rentals, vehicles, customers, invoices, preRegistrations } = useData();
   const [isWizardOpen, setWizardOpen] = useState(false);
   const [quickHandoverRental, setQuickHandoverRental] = useState<Rental | null>(null);
+  const [prefilledData, setPrefilledData] = useState<{customer: Omit<Customer, 'id'>, preRegistrationId: string} | null>(null);
   
   const activeRentals = rentals
     .filter(r => r.status === 'active')
@@ -110,6 +111,8 @@ const DashboardPage: React.FC = () => {
   const upcomingRentals = rentals
     .filter(r => r.status === 'upcoming')
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    
+  const submittedPreRegistrations = preRegistrations.filter(pr => pr.status === 'submitted');
     
   const availableVehicles = vehicles.length - activeRentals.length;
   
@@ -125,7 +128,6 @@ const DashboardPage: React.FC = () => {
     const alerts = [];
     const now = new Date();
     
-    // Overdue invoices
     const overdueInvoices = invoices.filter(i => i.status === 'unpaid' && new Date(i.dueDate) < now);
     if (overdueInvoices.length > 0) {
       alerts.push({
@@ -135,7 +137,6 @@ const DashboardPage: React.FC = () => {
       });
     }
 
-    // Upcoming STK
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(now.getDate() + 30);
     const upcomingStk = vehicles.filter(v => {
@@ -151,6 +152,17 @@ const DashboardPage: React.FC = () => {
     }
     return alerts;
   }, [invoices, vehicles]);
+
+  const handleCreateRentalFromPreRegistration = (preReg: PreRegistration) => {
+    if (!preReg.customerData) return;
+    setPrefilledData({ customer: preReg.customerData, preRegistrationId: preReg.id });
+    setWizardOpen(true);
+  };
+
+  const onWizardClose = () => {
+    setWizardOpen(false);
+    setPrefilledData(null); // Clear prefilled data when wizard closes
+  }
 
   return (
     <div className="space-y-8">
@@ -178,11 +190,47 @@ const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Vozidel v pronájmu" value={activeRentals.length} color="bg-blue-500" />
         <StatCard title="Dostupných vozidel" value={availableVehicles} color="bg-green-500" />
         <StatCard title="Nadcházející pronájmy" value={upcomingRentals.length} color="bg-yellow-500" />
+        <StatCard title="Nové poptávky" value={submittedPreRegistrations.length} color="bg-indigo-500" />
       </div>
+      
+      {submittedPreRegistrations.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-700 mb-4">Nové poptávky / Před-registrace</h2>
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+               <table className="min-w-full">
+                <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-6 py-3">Zákazník</th>
+                    <th className="px-6 py-3">Email</th>
+                    <th className="px-6 py-3">Datum odeslání</th>
+                    <th className="px-6 py-3">Akce</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {submittedPreRegistrations.map(preReg => (
+                    <tr key={preReg.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{preReg.customerData?.fullName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{preReg.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(preReg.created_at).toLocaleString('cs-CZ')}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button 
+                           onClick={() => handleCreateRentalFromPreRegistration(preReg)}
+                           className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700"
+                        >
+                           Vytvořit pronájem
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+      )}
 
       <div>
         <h2 className="text-2xl font-semibold text-gray-700 mb-4">Nadcházející pronájmy</h2>
@@ -249,7 +297,7 @@ const DashboardPage: React.FC = () => {
         </div>
       </div>
       
-      {isWizardOpen && <CreateRentalWizard isOpen={isWizardOpen} onClose={() => setWizardOpen(false)} />}
+      {isWizardOpen && <CreateRentalWizard isOpen={isWizardOpen} onClose={onWizardClose} prefilledData={prefilledData} />}
       {quickHandoverRental && (
         <QuickHandoverModal 
           rental={quickHandoverRental} 

@@ -28,8 +28,8 @@ const { createClient } = SupabaseGlobal;
 // ====================================================================
 // Tyto údaje najdete ve vašem Supabase projektu v "Project Settings" -> "API"
 
-const supabaseUrl = 'https://oyzddspqmtvpsaplaokx.supabase.co'; // Nahraďte tento text vaším Project URL
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emRkc3BxbXR2cHNhcGxhb2t4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0MTE5MDksImV4cCI6MjA3MTk4NzkwOX0.dlluYC8tok2yMWEyEYt-cVOkIDhnfmQexN2pxwmOWgg'; // Nahraďte tento text vaším 'anon public' klíčem
+const supabaseUrl = 'VAŠE_PROJECT_URL_VLOŽTE_SEM'; // Nahraďte tento text vaším Project URL
+const supabaseKey = 'VÁŠ_ANON_PUBLIC_KLÍČ_VLOŽTE_SEM'; // Nahraďte tento text vaším 'anon public' klíčem
 
 // ====================================================================
 

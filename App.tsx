@@ -12,6 +12,12 @@ import { DataProvider, useData } from './hooks/useDataContext';
 import Toast from './components/Toast';
 import CustomerDetailPage from './pages/CustomerDetailPage';
 import { LogoIcon } from './components/Icons';
+import PreRegistrationPage from './pages/PreRegistrationPage';
+// New imports for Auth
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import LoginPage from './pages/LoginPage';
+import ProtectedRoute from './components/ProtectedRoute';
+
 
 const LoadingSpinner: React.FC = () => (
   <div className="flex justify-center items-center h-screen bg-gray-100">
@@ -25,26 +31,42 @@ const LoadingSpinner: React.FC = () => (
 
 const AppContent: React.FC = () => {
   const { notifications, isLoading } = useData();
+  const { isAuthenticated } = useAuth();
 
-  if (isLoading) {
+  // Show loading spinner only if the user is authenticated and data is loading.
+  if (isLoading && isAuthenticated) {
     return <LoadingSpinner />;
   }
 
   return (
     <>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/fleet" element={<FleetPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/customers/:customerId" element={<CustomerDetailPage />} />
-          <Route path="/rentals" element={<RentalsPage />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/finances" element={<FinancesPage />} />
-          <Route path="/contracts" element={<ContractsPage />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/preregister/:preregistrationId" element={<PreRegistrationPage />} />
+        
+        {/* Protected Admin routes */}
+        <Route path="/*" element={
+          <ProtectedRoute>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/fleet" element={<FleetPage />} />
+                <Route path="/customers" element={<CustomersPage />} />
+                <Route path="/customers/:customerId" element={<CustomerDetailPage />} />
+                <Route path="/rentals" element={<RentalsPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/finances" element={<FinancesPage />} />
+                <Route path="/contracts" element={<ContractsPage />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
+        } />
+      </Routes>
+
+      {/* Toast notifications container */}
       <div aria-live="assertive" className="fixed inset-0 flex items-end px-4 py-6 pointer-events-none sm:p-6 sm:items-start z-[100]">
         <div className="w-full flex flex-col items-center space-y-4 sm:items-end">
           {notifications.map(n => (
@@ -65,11 +87,13 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <DataProvider>
-      <HashRouter>
-        <AppContent />
-      </HashRouter>
-    </DataProvider>
+    <AuthProvider>
+      <DataProvider>
+        <HashRouter>
+          <AppContent />
+        </HashRouter>
+      </DataProvider>
+    </AuthProvider>
   );
 };
 

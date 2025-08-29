@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import type { Vehicle, Customer, Rental, Invoice, ServiceRecord, Notification, HandoverProtocol } from '../types';
+import type { Vehicle, Customer, Rental, Invoice, ServiceRecord, Notification, HandoverProtocol, PreRegistration } from '../types';
 import { BUSINESS_INFO } from '../constants';
 import { supabase } from '../supabaseClient';
 
@@ -8,6 +8,7 @@ interface DataContextType {
   customers: Customer[];
   rentals: Rental[];
   invoices: Invoice[];
+  preRegistrations: PreRegistration[];
   notifications: Notification[];
   billingInfo: typeof BUSINESS_INFO;
   isLoading: boolean;
@@ -17,12 +18,15 @@ interface DataContextType {
   updateVehicle: (vehicle: Vehicle) => Promise<void>;
   updateCustomer: (customer: Customer) => Promise<void>;
   addCustomer: (customer: Omit<Customer, 'id'>) => Promise<Customer | null>;
-  addRental: (rental: Omit<Rental, 'id' | 'status' | 'startMileage' | 'endMileage' | 'pickupProtocol' | 'returnProtocol'>) => Promise<void>;
+  addRental: (rental: Omit<Rental, 'id' | 'status' | 'startMileage' | 'endMileage' | 'pickupProtocol' | 'returnProtocol'>, preRegistrationId?: string) => Promise<void>;
   addInvoice: (rentalId: string, status?: 'paid' | 'unpaid') => Promise<void>;
   addServiceRecord: (vehicleId: string, record: Omit<ServiceRecord, 'id'>) => Promise<void>;
   updateInvoiceStatus: (invoiceId: string, status: 'paid' | 'unpaid') => Promise<void>;
   addHandoverProtocol: (rentalId: string, type: 'pickup' | 'return', protocolData: Omit<HandoverProtocol, 'timestamp' | 'photos'> & { photoFiles: File[] }, options: { billingOption: 'none' | 'paid' | 'transfer' }) => Promise<void>;
   startRental: (rentalId: string, mileage: number) => Promise<void>;
+  createPreRegistration: (email: string) => Promise<PreRegistration | null>;
+  getPreRegistrationById: (id: string) => Promise<PreRegistration | null>;
+  submitPreRegistration: (id: string, data: { customerData: Omit<Customer, 'id'>, signature: string, idCardFile?: File, licenseFile?: File }) => Promise<boolean>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -32,6 +36,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [preRegistrations, setPreRegistrations] = useState<PreRegistration[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [billingInfo, setBillingInfo] = useState(BUSINESS_INFO);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,22 +57,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           { data: customersData, error: customersError },
           { data: rentalsData, error: rentalsError },
           { data: invoicesData, error: invoicesError },
+          { data: preRegsData, error: preRegsError },
         ] = await Promise.all([
           supabase.from('vehicles').select('*').order('make'),
           supabase.from('customers').select('*').order('fullName'),
           supabase.from('rentals').select('*'),
-          supabase.from('invoices').select('*')
+          supabase.from('invoices').select('*'),
+          supabase.from('preregistrations').select('*').order('created_at', { ascending: false })
         ]);
 
         if (vehiclesError) throw vehiclesError;
         if (customersError) throw customersError;
         if (rentalsError) throw rentalsError;
         if (invoicesError) throw invoicesError;
+        if (preRegsError) throw preRegsError;
 
         setVehicles(vehiclesData || []);
         setCustomers(customersData || []);
         setRentals(rentalsData || []);
         setInvoices(invoicesData || []);
+        setPreRegistrations(preRegsData || []);
         
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -80,7 +89,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [addNotification]);
   
   const updateBillingInfo = async (newInfo: typeof BUSINESS_INFO) => {
-    // This will remain client-side for now, as there is no settings table
     setBillingInfo(newInfo);
     addNotification('Fakturační údaje byly dočasně aktualizovány (neukládá se do DB).');
   };
@@ -133,7 +141,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const addRental = async (rentalData: Omit<Rental, 'id' | 'status' | 'startMileage' | 'endMileage' | 'pickupProtocol' | 'returnProtocol'>) => {
+  const addRental = async (rentalData: Omit<Rental, 'id' | 'status' | 'startMileage' | 'endMileage' | 'pickupProtocol' | 'returnProtocol'>, preRegistrationId?: string) => {
     const now = new Date();
     const startDate = new Date(rentalData.startDate);
     const status = startDate > now ? 'upcoming' : 'active';
@@ -146,6 +154,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
       setRentals(prev => [...prev, data]);
       addNotification('Nový pronájem byl úspěšně vytvořen.');
+      if (preRegistrationId) {
+        const { error: updateError } = await supabase.from('preregistrations').update({ status: 'completed' }).eq('id', preRegistrationId);
+        if (!updateError) {
+          setPreRegistrations(prev => prev.map(pr => pr.id === preRegistrationId ? { ...pr, status: 'completed' } : pr));
+        }
+      }
     }
   };
 
@@ -212,7 +226,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addHandoverProtocol = async (rentalId: string, type: 'pickup' | 'return', protocolData: Omit<HandoverProtocol, 'timestamp' | 'photos'> & { photoFiles: File[] }, options: { billingOption: 'none' | 'paid' | 'transfer' }) => {
-      // 1. Upload photos to Supabase Storage
       const photoUrls: string[] = [];
       for (const file of protocolData.photoFiles) {
         const fileName = `${rentalId}/${type}-${Date.now()}-${file.name}`;
@@ -225,18 +238,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data: { publicUrl } } = supabase.storage.from('protocols').getPublicUrl(fileName);
         photoUrls.push(publicUrl);
       }
-
-      // 2. Create protocol object with photo URLs
-      const newProtocol: HandoverProtocol = {
-        mileage: protocolData.mileage,
-        fuelLevel: protocolData.fuelLevel,
-        notes: protocolData.notes,
-        signature: protocolData.signature,
-        photos: photoUrls,
-        timestamp: new Date().toISOString()
-      };
+      const newProtocol: HandoverProtocol = { ...protocolData, photos: photoUrls, timestamp: new Date().toISOString() };
       
-      // 3. Prepare rental update object
       let rentalUpdate: Partial<Rental> = {};
       if(type === 'pickup') {
         rentalUpdate = { status: 'active', startDate: new Date().toISOString(), startMileage: protocolData.mileage, pickupProtocol: newProtocol };
@@ -253,16 +256,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
       }
 
-      // 4. Update rental in the database
       const { data, error } = await supabase.from('rentals').update(rentalUpdate).eq('id', rentalId).select().single();
-      
       if (error) {
         addNotification(`Chyba při ukládání protokolu: ${error.message}`, 'error');
       } else {
         setRentals(prev => prev.map(r => r.id === data.id ? data : r));
         addNotification(`Protokol uložen, pronájem ${type === 'pickup' ? 'zahájen' : 'dokončen'}.`);
 
-        // 5. Handle billing after successful update
         if(type === 'return') {
           if (options.billingOption === 'paid') addInvoice(rentalId, 'paid');
           else if (options.billingOption === 'transfer') addInvoice(rentalId, 'unpaid');
@@ -271,11 +271,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const startRental = async (rentalId: string, mileage: number) => {
-    const update = {
-      status: 'active' as 'active',
-      startDate: new Date().toISOString(),
-      startMileage: mileage,
-    };
+    const update = { status: 'active' as 'active', startDate: new Date().toISOString(), startMileage: mileage };
     const { data, error } = await supabase.from('rentals').update(update).eq('id', rentalId).select().single();
      if (error) {
       addNotification(`Chyba při zahájení pronájmu: ${error.message}`, 'error');
@@ -285,8 +281,68 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const createPreRegistration = async (email: string) => {
+    const { data, error } = await supabase.from('preregistrations').insert({ email, status: 'pending' }).select().single();
+    if (error) {
+      addNotification(`Chyba při vytváření pozvánky: ${error.message}`, 'error');
+      return null;
+    }
+    setPreRegistrations(prev => [data, ...prev]);
+    addNotification('Pozvánka pro zákazníka byla vytvořena.');
+    return data;
+  };
+
+  const getPreRegistrationById = async (id: string) => {
+    const { data, error } = await supabase.from('preregistrations').select('*').eq('id', id).single();
+    if (error) {
+      addNotification(`Pozvánka nebyla nalezena: ${error.message}`, 'error');
+      return null;
+    }
+    return data;
+  };
+  
+  const uploadDocument = async (file: File, id: string, type: string) => {
+      const fileName = `${id}/${type}-${Date.now()}-${file.name}`;
+      const { error } = await supabase.storage.from('documents').upload(fileName, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName);
+      return publicUrl;
+  };
+
+  const submitPreRegistration = async (id: string, data: { customerData: Omit<Customer, 'id'>, signature: string, idCardFile?: File, licenseFile?: File }) => {
+    try {
+      let idCardUrl: string | undefined = undefined;
+      let licenseUrl: string | undefined = undefined;
+
+      if (data.idCardFile) {
+        idCardUrl = await uploadDocument(data.idCardFile, id, 'id-card');
+      }
+      if (data.licenseFile) {
+        licenseUrl = await uploadDocument(data.licenseFile, id, 'license');
+      }
+
+      const { data: updatedData, error } = await supabase.from('preregistrations').update({
+        customerData: data.customerData,
+        signature: data.signature,
+        idCardUrl,
+        licenseUrl,
+        status: 'submitted'
+      }).eq('id', id).select().single();
+
+      if (error) throw error;
+
+      setPreRegistrations(prev => prev.map(pr => pr.id === id ? updatedData : pr));
+      return true;
+
+    } catch (error: any) {
+      addNotification(`Chyba při odesílání údajů: ${error.message}`, 'error');
+      return false;
+    }
+  };
+
+
   return (
-    <DataContext.Provider value={{ vehicles, customers, rentals, invoices, notifications, billingInfo, isLoading, updateBillingInfo, addNotification, addVehicle, updateVehicle, addCustomer, updateCustomer, addRental, addInvoice, addServiceRecord, updateInvoiceStatus, addHandoverProtocol, startRental }}>
+    <DataContext.Provider value={{ vehicles, customers, rentals, invoices, preRegistrations, notifications, billingInfo, isLoading, updateBillingInfo, addNotification, addVehicle, updateVehicle, addCustomer, updateCustomer, addRental, addInvoice, addServiceRecord, updateInvoiceStatus, addHandoverProtocol, startRental, createPreRegistration, getPreRegistrationById, submitPreRegistration }}>
       {children}
     </DataContext.Provider>
   );

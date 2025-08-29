@@ -5,9 +5,56 @@ import type { Customer } from '../types';
 import { Link } from 'react-router-dom';
 import { CustomersIcon, SortAscIcon, SortDescIcon, SortIcon } from '../components/Icons';
 
+const InviteCustomerModal: React.FC<{onClose: () => void}> = ({ onClose }) => {
+  const { createPreRegistration } = useData();
+  const [email, setEmail] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const newPreReg = await createPreRegistration(email);
+    if (newPreReg) {
+      const url = `${window.location.origin}${window.location.pathname}#/preregister/${newPreReg.id}`;
+      const subject = "Online registrace pro pronájem vozidla";
+      const body = `Dobrý den,
+
+pro urychlení procesu pronájmu vozidla prosím vyplňte své údaje na následujícím zabezpečeném odkazu:
+${url}
+
+Děkujeme,
+Tým Půjčovna Dodávek OS
+`;
+      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      onClose();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email zákazníka</label>
+        <input 
+          id="email" 
+          type="email" 
+          value={email}
+          onChange={e => setEmail(e.target.value)} 
+          required 
+          className="w-full p-2 border rounded-md mt-1" 
+          placeholder="zadejte@email.cz"
+          autoFocus
+        />
+        <p className="text-xs text-gray-500 mt-2">Po odeslání se otevře Váš emailový klient s připravenou zprávou obsahující unikátní odkaz pro zákazníka.</p>
+      </div>
+      <div className="flex justify-end pt-4">
+        <button type="submit" className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700">Odeslat pozvánku</button>
+      </div>
+    </form>
+  )
+}
+
 const CustomersPage: React.FC = () => {
   const { customers, addCustomer, updateCustomer } = useData();
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isInviteModalOpen, setInviteModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Customer; direction: 'ascending' | 'descending' } | null>({ key: 'fullName', direction: 'ascending'});
 
@@ -65,9 +112,14 @@ const CustomersPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-4xl font-bold text-gray-800">Zákazníci</h1>
-        <button onClick={openAddModal} className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition-colors">
-          + Nový zákazník
-        </button>
+        <div className="flex gap-4">
+          <button onClick={() => setInviteModalOpen(true)} className="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75 transition-colors">
+            Pozvat nového zákazníka
+          </button>
+          <button onClick={openAddModal} className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition-colors">
+            + Přidat ručně
+          </button>
+        </div>
       </div>
       
       {customers.length > 0 ? (
@@ -108,10 +160,10 @@ const CustomersPage: React.FC = () => {
         <div className="text-center py-20 bg-white rounded-xl shadow-lg">
           <CustomersIcon className="mx-auto h-16 w-16 text-gray-400" />
           <h3 className="mt-4 text-xl font-semibold text-gray-800">Nemáte žádné zákazníky</h3>
-          <p className="mt-2 text-gray-500">Začněte tím, že si přidáte svého prvního zákazníka.</p>
+          <p className="mt-2 text-gray-500">Začněte tím, že pozvete svého prvního zákazníka nebo ho přidáte ručně.</p>
           <div className="mt-6">
-            <button onClick={openAddModal} className="px-6 py-3 bg-blue-600 text-white text-lg font-semibold rounded-lg shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105">
-              + Přidat prvního zákazníka
+            <button onClick={() => setInviteModalOpen(true)} className="px-6 py-3 bg-indigo-600 text-white text-lg font-semibold rounded-lg shadow-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">
+              Pozvat prvního zákazníka
             </button>
           </div>
         </div>
@@ -125,6 +177,9 @@ const CustomersPage: React.FC = () => {
             customer={editingCustomer}
         />
       )}
+      <Modal isOpen={isInviteModalOpen} onClose={() => setInviteModalOpen(false)} title="Pozvat zákazníka k online registraci">
+        <InviteCustomerModal onClose={() => setInviteModalOpen(false)} />
+      </Modal>
     </div>
   );
 };
