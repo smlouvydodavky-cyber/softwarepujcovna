@@ -87,13 +87,13 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <DataProvider>
-        <HashRouter>
+    <HashRouter>
+      <AuthProvider>
+        <DataProvider>
           <AppContent />
-        </HashRouter>
-      </DataProvider>
-    </AuthProvider>
+        </DataProvider>
+      </AuthProvider>
+    </HashRouter>
   );
 };
 
