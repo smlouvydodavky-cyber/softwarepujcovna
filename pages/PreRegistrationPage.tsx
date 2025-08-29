@@ -81,12 +81,14 @@ const PreRegistrationPage: React.FC = () => {
       let licenseUrl: string | undefined;
 
       if (idCardFile) {
-        const { data, error } = await supabase.storage.from('documents').upload(`${preReg.id}/id-card-${idCardFile.name}`, idCardFile);
+        const fileName = `${preReg.id}/id-card-${Date.now()}-${idCardFile.name}`;
+        const { data, error } = await supabase.storage.from('documents').upload(fileName, idCardFile);
         if (error) throw error;
         idCardUrl = supabase.storage.from('documents').getPublicUrl(data.path).data.publicUrl;
       }
       if (licenseFile) {
-        const { data, error } = await supabase.storage.from('documents').upload(`${preReg.id}/license-${licenseFile.name}`, licenseFile);
+        const fileName = `${preReg.id}/license-${Date.now()}-${licenseFile.name}`;
+        const { data, error } = await supabase.storage.from('documents').upload(fileName, licenseFile);
         if (error) throw error;
         licenseUrl = supabase.storage.from('documents').getPublicUrl(data.path).data.publicUrl;
       }
