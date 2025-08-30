@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
@@ -20,7 +21,8 @@ const PreRegistrationPage: React.FC = () => {
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
   
-  const [customerData, setCustomerData] = useState<Omit<Customer, 'id'>>({
+  {/* FIX: Correctly type customerData to Omit 'created_at' as it's not present when a new customer is being created through pre-registration. */}
+  const [customerData, setCustomerData] = useState<Omit<Customer, 'id' | 'created_at'>>({
     fullName: '', email: '', phone: '', address: '', idNumber: '', drivingLicense: ''
   });
   const [idCardFile, setIdCardFile] = useState<File | undefined>();

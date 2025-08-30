@@ -10,7 +10,7 @@ interface CreateRentalWizardProps {
   onClose: () => void;
   initialStartDate?: Date | null;
   initialEndDate?: Date | null;
-  prefilledData?: { customer: Omit<Customer, 'id'>; preRegistrationId: string } | null;
+  prefilledData?: { customer: Omit<Customer, 'id' | 'created_at'>; preRegistrationId: string } | null;
 }
 
 const toDatetimeLocal = (date: Date | null) => {
@@ -23,7 +23,6 @@ const toDatetimeLocal = (date: Date | null) => {
 
 const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose, initialStartDate, initialEndDate, prefilledData }) => {
   const { customers, vehicles, rentals, addCustomer, addRental, addNotification } = useData();
-  // FIX: Update signaturePadRef type to include the 'clear' method, matching the SignaturePad component's ref type.
   const signaturePadRef = useRef<{ getSignatureData: () => string | null; clear: () => void; }>(null);
 
   const [step, setStep] = useState(1);
@@ -45,18 +44,22 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
 
   // Reset state when modal is opened to ensure it's fresh
   useEffect(() => {
+    let isMounted = true;
+
     const handlePrefilledData = async () => {
-        if (prefilledData) {
+        if (prefilledData && isMounted) {
             // Check if customer already exists
             const existingCustomer = customers.find(c => c.email.toLowerCase() === prefilledData.customer.email.toLowerCase());
             if (existingCustomer) {
-                setSelectedCustomer(existingCustomer);
-                setStep(2);
+                if (isMounted) {
+                  setSelectedCustomer(existingCustomer);
+                  setStep(2);
+                }
                 return;
             }
 
             const newCustomer = await addCustomer(prefilledData.customer);
-            if (newCustomer) {
+            if (newCustomer && isMounted) {
                 setSelectedCustomer(newCustomer);
                 setStep(2); // Automatically move to vehicle selection
             }
@@ -90,6 +93,10 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
 
       handlePrefilledData();
     }
+    
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, initialStartDate, initialEndDate, prefilledData, addCustomer, customers]);
 
   const filteredCustomers = useMemo(() => {
@@ -296,7 +303,9 @@ const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Podpis zákazníka</label>
-              <SignaturePad ref={signaturePadRef} onDraw={() => setIsSigned(true)} onClear={() => setIsSigned(false)} />
+              <div className="border rounded-md h-32">
+                 <SignaturePad ref={signaturePadRef} onDraw={() => setIsSigned(true)} onClear={() => setIsSigned(false)} />
+              </div>
             </div>
             <div className="flex items-center">
                 <input type="checkbox" id="agree" checked={hasAgreed} onChange={e => setHasAgreed(e.target.checked)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"/>

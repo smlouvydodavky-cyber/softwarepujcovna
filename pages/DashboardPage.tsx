@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../hooks/useDataContext';
 import { Link } from 'react-router-dom';
@@ -103,7 +104,8 @@ const DashboardPage: React.FC = () => {
   const { rentals, vehicles, customers, invoices, preRegistrations } = useData();
   const [isWizardOpen, setWizardOpen] = useState(false);
   const [quickHandoverRental, setQuickHandoverRental] = useState<Rental | null>(null);
-  const [prefilledData, setPrefilledData] = useState<{customer: Omit<Customer, 'id'>, preRegistrationId: string} | null>(null);
+  {/* FIX: Correctly type prefilledData customer to Omit 'created_at' as it's not present in pre-registration data. */}
+  const [prefilledData, setPrefilledData] = useState<{customer: Omit<Customer, 'id' | 'created_at'>, preRegistrationId: string} | null>(null);
   const [viewingPreReg, setViewingPreReg] = useState<PreRegistration | null>(null);
   
   const activeRentals = rentals

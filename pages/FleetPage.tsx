@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '../hooks/useDataContext';
 import Modal from '../components/Modal';
@@ -9,7 +10,8 @@ import { VEHICLE_MODELS } from '../constants';
 type VehicleMake = keyof typeof VEHICLE_MODELS;
 const vehicleMakes = Object.keys(VEHICLE_MODELS) as VehicleMake[];
 
-const AddVehicleForm: React.FC<{ onAdd: (vehicle: Omit<Vehicle, 'id' | 'serviceHistory' | 'pricing'>) => void; onClose: () => void; }> = ({ onAdd, onClose }) => {
+{/* FIX: Omit 'created_at' from the vehicle type for the onAdd prop, as this field is not provided when creating a new vehicle. */}
+const AddVehicleForm: React.FC<{ onAdd: (vehicle: Omit<Vehicle, 'id' | 'serviceHistory' | 'pricing' | 'created_at'>) => void; onClose: () => void; }> = ({ onAdd, onClose }) => {
   const [make, setMake] = useState<VehicleMake>(vehicleMakes[0]);
   const [model, setModel] = useState(VEHICLE_MODELS[make][0]);
   const [year, setYear] = useState(new Date().getFullYear());

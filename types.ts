@@ -12,6 +12,7 @@ export interface Vehicle {
     hour12: number;
     day: number;
   };
+  created_at: string;
 }
 
 export interface Customer {
@@ -22,6 +23,7 @@ export interface Customer {
   address: string;
   idNumber: string; // "číslo OP"
   drivingLicense: string;
+  created_at: string;
 }
 
 export interface ServiceRecord {
@@ -53,6 +55,7 @@ export interface Rental {
   endMileage?: number;
   pickupProtocol?: HandoverProtocol;
   returnProtocol?: HandoverProtocol;
+  created_at: string;
 }
 
 export interface InvoiceParty {
@@ -82,6 +85,7 @@ export interface Invoice {
   customer: InvoiceParty;
   items: InvoiceItem[];
   variableSymbol: string;
+  created_at: string;
 }
 
 export interface Notification {
@@ -94,7 +98,7 @@ export interface PreRegistration {
   id: string;
   email: string;
   status: 'pending' | 'submitted' | 'completed';
-  customerData?: Omit<Customer, 'id'>;
+  customerData?: Omit<Customer, 'id' | 'created_at'>;
   idCardUrl?: string;
   licenseUrl?: string;
   signature?: string;

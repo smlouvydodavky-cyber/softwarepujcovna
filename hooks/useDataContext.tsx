@@ -14,11 +14,11 @@ interface DataContextType {
   isLoading: boolean;
   updateBillingInfo: (newInfo: typeof BUSINESS_INFO) => Promise<void>;
   addNotification: (message: string, type?: 'success' | 'error') => void;
-  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'serviceHistory' | 'pricing'>) => Promise<void>;
+  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'serviceHistory' | 'pricing' | 'created_at'>) => Promise<void>;
   updateVehicle: (vehicle: Vehicle) => Promise<void>;
   updateCustomer: (customer: Customer) => Promise<void>;
-  addCustomer: (customer: Omit<Customer, 'id'>) => Promise<Customer | null>;
-  addRental: (rental: Omit<Rental, 'id' | 'status' | 'startMileage' | 'endMileage' | 'pickupProtocol' | 'returnProtocol'>, preRegistrationId?: string) => Promise<void>;
+  addCustomer: (customer: Omit<Customer, 'id' | 'created_at'>) => Promise<Customer | null>;
+  addRental: (rental: Omit<Rental, 'id' | 'status' | 'startMileage' | 'endMileage' | 'pickupProtocol' | 'returnProtocol' | 'created_at'>, preRegistrationId?: string) => Promise<void>;
   addInvoice: (rentalId: string, status?: 'paid' | 'unpaid') => Promise<void>;
   addServiceRecord: (vehicleId: string, record: Omit<ServiceRecord, 'id'>) => Promise<void>;
   updateInvoiceStatus: (invoiceId: string, status: 'paid' | 'unpaid') => Promise<void>;
@@ -26,7 +26,7 @@ interface DataContextType {
   startRental: (rentalId: string, mileage: number) => Promise<void>;
   createPreRegistration: (email: string) => Promise<PreRegistration | null>;
   getPreRegistrationById: (id: string) => Promise<PreRegistration | null>;
-  submitPreRegistration: (id: string, data: { customerData: Omit<Customer, 'id'>, signature: string, idCardFile?: File, licenseFile?: File }) => Promise<boolean>;
+  submitPreRegistration: (id: string, data: { customerData: Omit<Customer, 'id' | 'created_at'>, signature: string, idCardFile?: File, licenseFile?: File }) => Promise<boolean>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -93,7 +93,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addNotification('Fakturační údaje byly dočasně aktualizovány (neukládá se do DB).');
   };
 
-  const addVehicle = async (vehicleData: Omit<Vehicle, 'id' | 'serviceHistory' | 'pricing'>) => {
+  const addVehicle = async (vehicleData: Omit<Vehicle, 'id' | 'serviceHistory' | 'pricing' | 'created_at'>) => {
     const newVehicleData = { 
       ...vehicleData, 
       serviceHistory: [],
@@ -119,7 +119,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const addCustomer = async (customerData: Omit<Customer, 'id'>): Promise<Customer | null> => {
+  const addCustomer = async (customerData: Omit<Customer, 'id' | 'created_at'>): Promise<Customer | null> => {
      const { data, error } = await supabase.from('customers').insert(customerData).select().single();
      if (error) {
       addNotification(`Chyba při vytváření zákazníka: ${error.message}`, 'error');
@@ -141,7 +141,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const addRental = async (rentalData: Omit<Rental, 'id' | 'status' | 'startMileage' | 'endMileage' | 'pickupProtocol' | 'returnProtocol'>, preRegistrationId?: string) => {
+  const addRental = async (rentalData: Omit<Rental, 'id' | 'status' | 'startMileage' | 'endMileage' | 'pickupProtocol' | 'returnProtocol' | 'created_at'>, preRegistrationId?: string) => {
     const now = new Date();
     const startDate = new Date(rentalData.startDate);
     const status = startDate > now ? 'upcoming' : 'active';
@@ -204,7 +204,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addServiceRecord = async (vehicleId: string, record: Omit<ServiceRecord, 'id'>) => {
      const vehicle = vehicles.find(v => v.id === vehicleId);
      if (!vehicle) return;
-     const updatedHistory = [...vehicle.serviceHistory, { ...record, id: `s${Date.now()}` }];
+     const updatedHistory = [...vehicle.serviceHistory, { ...record, id: crypto.randomUUID() }];
      const { data, error } = await supabase.from('vehicles').update({ serviceHistory: updatedHistory }).eq('id', vehicleId).select().single();
 
      if (error) {
@@ -309,7 +309,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return publicUrl;
   };
 
-  const submitPreRegistration = async (id: string, data: { customerData: Omit<Customer, 'id'>, signature: string, idCardFile?: File, licenseFile?: File }) => {
+  const submitPreRegistration = async (id: string, data: { customerData: Omit<Customer, 'id' | 'created_at'>, signature: string, idCardFile?: File, licenseFile?: File }) => {
     try {
       let idCardUrl: string | undefined = undefined;
       let licenseUrl: string | undefined = undefined;

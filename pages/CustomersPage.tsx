@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../hooks/useDataContext';
 import Modal from '../components/Modal';
@@ -68,7 +69,8 @@ const CustomersPage: React.FC = () => {
     setModalOpen(true);
   };
   
-  const handleFormSubmit = (customerData: Omit<Customer, 'id'> | Customer) => {
+  {/* FIX: Correct the type to Omit 'created_at' for new customers, as it's not provided in the form. */}
+  const handleFormSubmit = (customerData: Omit<Customer, 'id' | 'created_at'> | Customer) => {
     if ('id' in customerData) {
       updateCustomer(customerData);
     } else {
@@ -188,7 +190,8 @@ const CustomersPage: React.FC = () => {
 interface CustomerFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (customerData: Omit<Customer, 'id'> | Customer) => void;
+    {/* FIX: Correct the type to Omit 'created_at' for new customers, as it's not provided in the form. */}
+    onSubmit: (customerData: Omit<Customer, 'id' | 'created_at'> | Customer) => void;
     customer: Customer | null;
 }
 
