@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import type { Rental, PreRegistration, Customer } from '../types';
 import CreateRentalWizard from '../components/CreateRentalWizard';
 import QuickHandoverModal from '../components/QuickHandoverModal';
-import { WarningIcon } from '../components/Icons';
+import { WarningIcon, DocumentTextIcon } from '../components/Icons';
+import PreRegistrationDetailModal from '../components/PreRegistrationDetailModal';
 
 const StatCard: React.FC<{ title: string; value: string | number; color: string }> = ({ title, value, color }) => (
   <div className={`p-6 rounded-xl shadow-lg ${color}`}>
@@ -103,6 +104,7 @@ const DashboardPage: React.FC = () => {
   const [isWizardOpen, setWizardOpen] = useState(false);
   const [quickHandoverRental, setQuickHandoverRental] = useState<Rental | null>(null);
   const [prefilledData, setPrefilledData] = useState<{customer: Omit<Customer, 'id'>, preRegistrationId: string} | null>(null);
+  const [viewingPreReg, setViewingPreReg] = useState<PreRegistration | null>(null);
   
   const activeRentals = rentals
     .filter(r => r.status === 'active')
@@ -155,6 +157,7 @@ const DashboardPage: React.FC = () => {
 
   const handleCreateRentalFromPreRegistration = (preReg: PreRegistration) => {
     if (!preReg.customerData) return;
+    setViewingPreReg(null); // Close the detail modal first
     setPrefilledData({ customer: preReg.customerData, preRegistrationId: preReg.id });
     setWizardOpen(true);
   };
@@ -212,16 +215,17 @@ const DashboardPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {submittedPreRegistrations.map(preReg => (
-                    <tr key={preReg.id}>
+                    <tr key={preReg.id} onClick={() => setViewingPreReg(preReg)} className="hover:bg-gray-50 cursor-pointer">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{preReg.customerData?.fullName}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{preReg.email}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(preReg.created_at).toLocaleString('cs-CZ')}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button 
-                           onClick={() => handleCreateRentalFromPreRegistration(preReg)}
-                           className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700"
+                           onClick={(e) => { e.stopPropagation(); setViewingPreReg(preReg); }}
+                           className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 font-semibold rounded-lg shadow-sm hover:bg-indigo-200"
                         >
-                           Vytvořit pronájem
+                           <DocumentTextIcon className="w-5 h-5"/>
+                           Zkontrolovat údaje
                         </button>
                       </td>
                     </tr>
@@ -302,6 +306,14 @@ const DashboardPage: React.FC = () => {
         <QuickHandoverModal 
           rental={quickHandoverRental} 
           onClose={() => setQuickHandoverRental(null)} 
+        />
+      )}
+      {viewingPreReg && (
+        <PreRegistrationDetailModal
+          isOpen={!!viewingPreReg}
+          onClose={() => setViewingPreReg(null)}
+          preRegistration={viewingPreReg}
+          onConfirm={handleCreateRentalFromPreRegistration}
         />
       )}
     </div>

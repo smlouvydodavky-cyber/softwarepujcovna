@@ -23,7 +23,8 @@ const toDatetimeLocal = (date: Date | null) => {
 
 const CreateRentalWizard: React.FC<CreateRentalWizardProps> = ({ isOpen, onClose, initialStartDate, initialEndDate, prefilledData }) => {
   const { customers, vehicles, rentals, addCustomer, addRental, addNotification } = useData();
-  const signaturePadRef = useRef<{ getSignatureData: () => string | null }>(null);
+  // FIX: Update signaturePadRef type to include the 'clear' method, matching the SignaturePad component's ref type.
+  const signaturePadRef = useRef<{ getSignatureData: () => string | null; clear: () => void; }>(null);
 
   const [step, setStep] = useState(1);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);

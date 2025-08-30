@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import type { PreRegistration, Customer } from '../types';
-import SignaturePad from '../components/SignaturePad';
 import { LogoIcon } from '../components/Icons';
 import { BUSINESS_INFO } from '../constants';
+import SignatureModal from '../components/SignatureModal';
 
 const LoadingSpinner: React.FC = () => (
   <div className="text-center">
@@ -25,9 +25,9 @@ const PreRegistrationPage: React.FC = () => {
   });
   const [idCardFile, setIdCardFile] = useState<File | undefined>();
   const [licenseFile, setLicenseFile] = useState<File | undefined>();
-  const [isSigned, setIsSigned] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const signaturePadRef = useRef<{ getSignatureData: () => string | null }>(null);
 
   useEffect(() => {
     const fetchPreReg = async () => {
@@ -69,8 +69,7 @@ const PreRegistrationPage: React.FC = () => {
     setIsSubmitting(true);
     setError('');
 
-    const signature = signaturePadRef.current?.getSignatureData();
-    if (!preReg || !isSigned || !signature) {
+    if (!preReg || !signature) {
       setError('Je nutné potvrdit údaje podpisem.');
       setIsSubmitting(false);
       return;
@@ -111,6 +110,11 @@ const PreRegistrationPage: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+  
+  const handleSignatureSave = (data: string) => {
+    setSignature(data);
+    setIsSignatureModalOpen(false);
+  }
 
   const renderStep = () => {
     switch (step) {
@@ -161,13 +165,22 @@ const PreRegistrationPage: React.FC = () => {
             </div>
             <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Váš podpis</label>
-                <SignaturePad ref={signaturePadRef} onDraw={() => setIsSigned(true)} onClear={() => setIsSigned(false)} />
+                <div 
+                  className="w-full h-[100px] border border-gray-300 rounded-md bg-gray-50 flex justify-center items-center cursor-pointer"
+                  onClick={() => setIsSignatureModalOpen(true)}
+                >
+                  {signature ? (
+                    <img src={signature} alt="Podpis" className="h-20 object-contain" />
+                  ) : (
+                    <span className="text-gray-500">Klikněte pro podpis</span>
+                  )}
+                </div>
             </div>
              <p className="text-xs text-gray-500 mt-4">Svým podpisem souhlasím se zpracováním osobních údajů pro účely vytvoření smlouvy o pronájmu vozidla v souladu s GDPR.</p>
              {error && <p className="text-red-500 text-center font-semibold mt-4">{error}</p>}
             <div className="flex justify-between mt-6">
                 <button type="button" onClick={() => setStep(2)} className="p-3 bg-gray-200 text-gray-800 font-semibold rounded-lg">Zpět</button>
-                <button type="submit" disabled={!isSigned || isSubmitting} className="p-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 disabled:bg-gray-400">
+                <button type="submit" disabled={!signature || isSubmitting} className="p-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 disabled:bg-gray-400">
                     {isSubmitting ? 'Odesílám...' : 'Odeslat údaje'}
                 </button>
             </div>
@@ -187,22 +200,31 @@ const PreRegistrationPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4 font-sans">
-      <div className="w-full max-w-lg mx-auto">
-        <header className="text-center mb-8">
-            <LogoIcon className="h-12 w-12 mx-auto text-blue-600" />
-            <h1 className="text-3xl font-bold mt-2 text-gray-800">{BUSINESS_INFO.name}</h1>
-            <p className="text-gray-600">Online registrace zákazníka</p>
-        </header>
-        <main className="bg-white p-8 rounded-2xl shadow-xl">
-          {loading ? <LoadingSpinner /> : error ? (
-            <div className="text-center text-red-600 font-semibold">
-                <p>{error}</p>
-            </div>
-          ) : renderStep()}
-        </main>
+    <>
+      <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4 font-sans">
+        <div className="w-full max-w-lg mx-auto">
+          <header className="text-center mb-8">
+              <LogoIcon className="h-12 w-12 mx-auto text-blue-600" />
+              <h1 className="text-3xl font-bold mt-2 text-gray-800">{BUSINESS_INFO.name}</h1>
+              <p className="text-gray-600">Online registrace zákazníka</p>
+          </header>
+          <main className="bg-white p-8 rounded-2xl shadow-xl">
+            {loading ? <LoadingSpinner /> : error ? (
+              <div className="text-center text-red-600 font-semibold">
+                  <p>{error}</p>
+              </div>
+            ) : renderStep()}
+          </main>
+        </div>
       </div>
-    </div>
+      {isSignatureModalOpen && (
+        <SignatureModal
+          isOpen={isSignatureModalOpen}
+          onClose={() => setIsSignatureModalOpen(false)}
+          onSave={handleSignatureSave}
+        />
+      )}
+    </>
   );
 };
 

@@ -1,11 +1,13 @@
 import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 interface SignaturePadProps {
-  onDraw: () => void;
-  onClear: () => void;
+  onDraw?: () => void;
+  onClear?: () => void;
+  width?: number;
+  height?: number;
 }
 
-const SignaturePad = forwardRef<{ getSignatureData: () => string | null }, SignaturePadProps>(({ onDraw, onClear }, ref) => {
+const SignaturePad = forwardRef<{ getSignatureData: () => string | null, clear: () => void }, SignaturePadProps>(({ onDraw, onClear, width, height }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
@@ -21,12 +23,11 @@ const SignaturePad = forwardRef<{ getSignatureData: () => string | null }, Signa
     const ctx = getCanvasContext();
     if (!canvas || !ctx) return;
     
-    // Set canvas size based on its container
     const resizeCanvas = () => {
         const parent = canvas.parentElement;
         if (parent) {
-            canvas.width = parent.clientWidth;
-            canvas.height = 150; // Fixed height
+            canvas.width = width || parent.clientWidth;
+            canvas.height = height || parent.clientHeight;
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 2;
             ctx.lineCap = 'round';
@@ -40,7 +41,7 @@ const SignaturePad = forwardRef<{ getSignatureData: () => string | null }, Signa
     return () => {
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, []);
+  }, [width, height]);
 
   const getEventPosition = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>): { x: number; y: number } | null => {
     const canvas = canvasRef.current;
@@ -61,7 +62,7 @@ const SignaturePad = forwardRef<{ getSignatureData: () => string | null }, Signa
 
     isDrawing.current = true;
     lastPos.current = pos;
-    onDraw();
+    if(onDraw) onDraw();
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -88,7 +89,7 @@ const SignaturePad = forwardRef<{ getSignatureData: () => string | null }, Signa
     const ctx = getCanvasContext();
     if (canvas && ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      onClear();
+      if(onClear) onClear();
     }
   };
   
@@ -99,11 +100,12 @@ const SignaturePad = forwardRef<{ getSignatureData: () => string | null }, Signa
               return canvas.toDataURL('image/png');
           }
           return null;
-      }
+      },
+      clear: clearCanvas
   }));
 
   return (
-    <div className="relative w-full h-[150px] border border-gray-300 rounded-md bg-gray-50 touch-none">
+    <div className="relative w-full h-full bg-gray-50 touch-none" style={{ touchAction: 'none' }}>
       <canvas
         ref={canvasRef}
         onMouseDown={(e) => startDrawing(e)}
@@ -115,14 +117,6 @@ const SignaturePad = forwardRef<{ getSignatureData: () => string | null }, Signa
         onTouchEnd={stopDrawing}
         className="w-full h-full"
       />
-      <button 
-        type="button" 
-        onClick={clearCanvas} 
-        className="absolute top-2 right-2 px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-        aria-label="Clear signature"
-      >
-        Vymazat
-      </button>
     </div>
   );
 });
